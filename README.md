@@ -1,4 +1,4 @@
-Collecting workspace information# Journey Performance Analysis Dashboard
+# Journey Performance Analysis Dashboard
 
 ## Overview
 
