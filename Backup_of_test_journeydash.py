@@ -9,55 +9,9 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 import socket
-import base64
-import io
 from datetime import datetime, timedelta
 
-try:
-    import weasyprint
-    HAS_WEASYPRINT = True
-except ImportError:
-    HAS_WEASYPRINT = False
-
 warnings.filterwarnings('ignore')
-
-# ============================================================
-# DARK MODERN THEME CONSTANTS
-# ============================================================
-ACCENT_COLORS = ['#00d4ff', '#10b981', '#f59e0b', '#ef4444', '#7c3aed', '#3b82f6', '#ec4899', '#14b8a6']
-
-DARK_TABLE_STYLE_TABLE = {'overflowX': 'auto', 'borderRadius': '12px', 'border': '1px solid rgba(255,255,255,0.06)'}
-DARK_TABLE_STYLE_CELL = {
-    'textAlign': 'center', 'padding': '10px 12px', 'fontSize': '12px',
-    'backgroundColor': '#1a1f2e', 'color': '#cbd5e1',
-    'border': '1px solid rgba(255,255,255,0.06)', 'fontFamily': 'Inter, -apple-system, sans-serif',
-}
-DARK_TABLE_STYLE_HEADER = {
-    'backgroundColor': '#0f1419', 'color': '#e2e8f0', 'fontWeight': '600',
-    'textAlign': 'center', 'fontSize': '12px',
-    'border': '1px solid rgba(255,255,255,0.08)', 'fontFamily': 'Inter, -apple-system, sans-serif',
-}
-DARK_TABLE_STYLE_DATA_COND = [
-    {'if': {'row_index': 'odd'}, 'backgroundColor': '#151a27'},
-    {'if': {'column_id': 'Journey Name'}, 'textAlign': 'left', 'fontWeight': '500'},
-]
-
-def apply_dark_chart_style(fig, height=500):
-    """Apply consistent dark theme to any plotly figure"""
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family='Inter, -apple-system, sans-serif', color='#e2e8f0', size=12),
-        title_font=dict(size=16, color='#e2e8f0'),
-        height=height,
-        margin=dict(t=80, b=60, l=60, r=60),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
-                    font=dict(color='#94a3b8')),
-        xaxis=dict(gridcolor='rgba(255,255,255,0.06)', zerolinecolor='rgba(255,255,255,0.06)'),
-        yaxis=dict(gridcolor='rgba(255,255,255,0.06)', zerolinecolor='rgba(255,255,255,0.06)'),
-    )
-    return fig
 
 # Configuration Variablesfile_path1 = "reportoct.csv"  # Path to the CSV file
 file_path1 = "combined_reports.csv"  # Path to the CSV file
@@ -446,139 +400,8 @@ except Exception as e:
     unique_user_channels = []
     min_date = max_date = None
 
-# Initialize Dash app with dark theme
-app = dash.Dash(
-    __name__,
-    external_stylesheets=[
-        dbc.themes.BOOTSTRAP,
-        "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap",
-        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    ]
-)
-
-# Custom dark theme HTML template
-app.index_string = '''
-<!DOCTYPE html>
-<html>
-<head>
-    {%metas%}
-    <title>{%title%}</title>
-    {%favicon%}
-    {%css%}
-    <style>
-        body, html { background-color: #0f1419 !important; color: #e2e8f0 !important;
-            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
-        .container-fluid { background-color: #0f1419 !important; padding-top: 20px !important; }
-        .glass-card { background: rgba(26,31,46,0.85) !important; backdrop-filter: blur(16px);
-            border: 1px solid rgba(255,255,255,0.07) !important; border-radius: 14px !important;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.25); transition: all 0.3s ease; }
-        .glass-card:hover { transform: translateY(-3px);
-            box-shadow: 0 12px 40px rgba(0,212,255,0.12); border-color: rgba(0,212,255,0.18) !important; }
-        .kpi-cyan { border-left: 4px solid #00d4ff !important; }
-        .kpi-green { border-left: 4px solid #10b981 !important; }
-        .kpi-blue { border-left: 4px solid #38bdf8 !important; }
-        .kpi-amber { border-left: 4px solid #f59e0b !important; }
-        .kpi-red { border-left: 4px solid #ef4444 !important; }
-        .kpi-purple { border-left: 4px solid #7c3aed !important; }
-        .gradient-title { background: linear-gradient(135deg, #00d4ff, #7c3aed);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-clip: text; font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px; }
-        .gradient-hr { border: none; height: 2px;
-            background: linear-gradient(90deg, transparent, #00d4ff, #7c3aed, transparent); margin: 16px 0 24px 0; }
-        .card { background: rgba(26,31,46,0.9) !important; border: 1px solid rgba(255,255,255,0.06) !important;
-            border-radius: 14px !important; }
-        .card-header { background: rgba(36,43,61,0.9) !important;
-            border-bottom: 1px solid rgba(255,255,255,0.06) !important; color: #e2e8f0 !important;
-            border-radius: 14px 14px 0 0 !important; }
-        .card-body { color: #e2e8f0 !important; }
-        .nav-tabs { border-bottom: 2px solid rgba(255,255,255,0.06) !important; }
-        .nav-tabs .nav-link { color: #64748b !important; border: none !important;
-            border-radius: 10px 10px 0 0 !important; padding: 12px 22px !important;
-            transition: all 0.3s ease !important; background: transparent !important;
-            font-weight: 500 !important; font-size: 0.9rem !important; }
-        .nav-tabs .nav-link:hover { color: #00d4ff !important; background: rgba(0,212,255,0.06) !important; }
-        .nav-tabs .nav-link.active { color: #00d4ff !important; background: rgba(0,212,255,0.1) !important;
-            border-bottom: 3px solid #00d4ff !important; font-weight: 600 !important; }
-        .form-check-label { color: #cbd5e1 !important; font-size: 0.85rem !important; }
-        .form-check-input { background-color: #242b3d !important; border-color: rgba(255,255,255,0.15) !important; }
-        .form-check-input:checked { background-color: #00d4ff !important; border-color: #00d4ff !important; }
-        label, .fw-bold { color: #e2e8f0 !important; }
-        .form-control, .Select-control, input[type="text"] {
-            background-color: #242b3d !important; border-color: rgba(255,255,255,0.1) !important;
-            color: #e2e8f0 !important; }
-        .btn-outline-primary { color: #00d4ff !important; border-color: #00d4ff !important; }
-        .btn-outline-primary:hover { background: #00d4ff !important; color: #0f1419 !important; }
-        .btn-outline-secondary { color: #94a3b8 !important; border-color: #475569 !important; }
-        .btn-outline-secondary:hover { background: #475569 !important; color: #e2e8f0 !important; }
-        .btn-outline-success { color: #10b981 !important; border-color: #10b981 !important; }
-        .btn-outline-success:hover { background: #10b981 !important; color: #0f1419 !important; }
-        .btn-success { background: linear-gradient(135deg, #10b981, #059669) !important; border: none !important; }
-        .btn-primary { background: linear-gradient(135deg, #00d4ff, #0ea5e9) !important; border: none !important; }
-        .btn-info { background: linear-gradient(135deg, #7c3aed, #a855f7) !important; border: none !important; color: #fff !important; }
-        .DateInput_input { background: #242b3d !important; color: #e2e8f0 !important;
-            border-color: rgba(255,255,255,0.1) !important; font-family: Inter, sans-serif !important; }
-        .DateRangePickerInput { background: #242b3d !important; border-color: rgba(255,255,255,0.1) !important;
-            border-radius: 8px !important; }
-        .DateRangePickerInput_arrow svg { fill: #64748b !important; }
-        .DateInput { background: transparent !important; }
-        .Select-menu-outer { background: #1a1f2e !important; border-color: rgba(255,255,255,0.1) !important; }
-        .Select-option { color: #e2e8f0 !important; background: #1a1f2e !important; }
-        .Select-option:hover, .Select-option.is-focused { background: #242b3d !important; }
-        .Select-value-label, .Select-placeholder { color: #94a3b8 !important; }
-        .Select-input input { color: #e2e8f0 !important; }
-        .alert-info { background: rgba(0,212,255,0.08) !important; border-color: rgba(0,212,255,0.15) !important;
-            color: #67e8f9 !important; border-radius: 10px !important; }
-        .alert-warning { background: rgba(245,158,11,0.08) !important; border-color: rgba(245,158,11,0.15) !important;
-            color: #fbbf24 !important; border-radius: 10px !important; }
-        .alert-danger { background: rgba(239,68,68,0.08) !important; border-color: rgba(239,68,68,0.15) !important;
-            color: #f87171 !important; border-radius: 10px !important; }
-        h1,h2,h3,h4,h5,h6 { color: #e2e8f0 !important; }
-        p { color: #94a3b8 !important; }
-        small, .small, .text-muted { color: #64748b !important; }
-        .text-primary { color: #00d4ff !important; }
-        .text-success { color: #10b981 !important; }
-        .text-info { color: #38bdf8 !important; }
-        .text-warning { color: #f59e0b !important; }
-        .text-danger { color: #ef4444 !important; }
-        .text-dark { color: #e2e8f0 !important; }
-        .filter-scroll { max-height: 200px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 8px; padding: 10px; background: rgba(15,20,25,0.5); }
-        .filter-scroll::-webkit-scrollbar { width: 6px; }
-        .filter-scroll::-webkit-scrollbar-track { background: transparent; }
-        .filter-scroll::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #0f1419; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
-        .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner input {
-            background-color: #242b3d !important; color: #e2e8f0 !important; }
-        .previous-next-container { color: #94a3b8 !important; }
-        .page-number { color: #94a3b8 !important; }
-        .export { color: #00d4ff !important; background: transparent !important;
-            border: 1px solid rgba(0,212,255,0.3) !important; border-radius: 6px !important; padding: 4px 12px !important; }
-        .btn-dl-html { background: linear-gradient(135deg, #00d4ff, #0ea5e9) !important;
-            border: none !important; color: #fff !important; font-weight: 600 !important;
-            padding: 12px 32px !important; border-radius: 10px !important; transition: all 0.3s ease !important; }
-        .btn-dl-html:hover { box-shadow: 0 0 24px rgba(0,212,255,0.35) !important; transform: translateY(-2px) !important; }
-        .btn-dl-pdf { background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
-            border: none !important; color: #fff !important; font-weight: 600 !important;
-            padding: 12px 32px !important; border-radius: 10px !important; transition: all 0.3s ease !important; }
-        .btn-dl-pdf:hover { box-shadow: 0 0 24px rgba(124,58,237,0.35) !important; transform: translateY(-2px) !important; }
-        .filter-toggle { background: rgba(0,212,255,0.1) !important; border: 1px solid rgba(0,212,255,0.2) !important;
-            color: #00d4ff !important; border-radius: 8px !important; font-weight: 500 !important; }
-        .filter-toggle:hover { background: rgba(0,212,255,0.2) !important; }
-    </style>
-</head>
-<body>
-    {%app_entry%}
-    <footer>
-        {%config%}
-        {%scripts%}
-        {%renderer%}
-    </footer>
-</body>
-</html>
-'''
+# Initialize Dash app
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 def get_local_ip():
     """Get the local IP address of the machine"""
@@ -591,163 +414,127 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
-# Enhanced layout with dark modern theme
+# Enhanced layout with tabs for different analytics views
 app.layout = dbc.Container([
-    # Download components for report generation
-    dcc.Download(id="download-html-report"),
-    dcc.Download(id="download-pdf-report"),
-
     # Header
     dbc.Row([
         dbc.Col([
-            html.Div([
-                html.H1("Journey Analytics Dashboard", className="gradient-title text-center mb-1"),
-                html.P("Real-time campaign performance intelligence",
-                       style={'textAlign': 'center', 'color': '#64748b', 'fontSize': '0.95rem', 'fontWeight': '400', 'letterSpacing': '0.5px'}),
-            ], style={'paddingTop': '10px'}),
-            html.Div(className="gradient-hr")
+            html.H1("Journey Analytics Dashboard", 
+                   className="text-center mb-4 text-primary"),
+            html.Hr()
         ])
     ]),
-
-    # Toggle Filter Button
-    dbc.Row([
-        dbc.Col([
-            dbc.Button(
-                [html.I(className="fas fa-sliders-h me-2"), "Filter Controls"],
-                id="toggle-filters-btn", className="filter-toggle mb-3", size="sm"
-            ),
-        ], width="auto")
-    ]),
-
-    # Collapsible Filter Controls Section
-    dbc.Collapse(
-        dbc.Card([
-            dbc.CardHeader([
-                html.Div([
-                    html.I(className="fas fa-filter me-2", style={'color': '#00d4ff'}),
-                    html.Span("Filter Controls", style={'fontWeight': '600', 'fontSize': '1rem'})
-                ], style={'display': 'flex', 'alignItems': 'center'})
-            ]),
-            dbc.CardBody([
-                dbc.Row([
-                    # Journey Selection
-                    dbc.Col([
-                        html.Label([html.I(className="fas fa-route me-2", style={'color': '#00d4ff'}), "Select Journeys:"], className="fw-bold mb-2"),
-                        html.Div([
-                            dbc.Button("Select All", id="select-all-journeys", size="sm", color="outline-primary", className="me-2 mb-2"),
-                            dbc.Button("Clear All", id="clear-all-journeys", size="sm", color="outline-secondary", className="me-2 mb-2"),
-                            dbc.Button("Top 10 ROI", id="top-roi-journeys", size="sm", color="outline-success", className="mb-2"),
-                        ]),
-                        html.Div([
-                            dcc.Checklist(
-                                id='journey-checklist',
-                                options=[{'label': journey, 'value': journey} for journey in unique_journeys],
-                                value=unique_journeys[:10] if len(unique_journeys) > 10 else unique_journeys,
-                                className="mt-1"
-                            )
-                        ], className="filter-scroll")
-                    ], width=4),
-
-                    # Channel Selection
-                    dbc.Col([
-                        html.Label([html.I(className="fas fa-satellite-dish me-2", style={'color': '#10b981'}), "Channels:"], className="fw-bold mb-2"),
-                        html.Div([
-                            dbc.Button("Select All", id="select-all-channels", size="sm", color="outline-primary", className="me-2 mb-2"),
-                            dbc.Button("Clear All", id="clear-all-channels", size="sm", color="outline-secondary", className="mb-2"),
-                        ]),
-                        dcc.Checklist(
-                            id='channel-checklist',
-                            options=[{'label': channel, 'value': channel} for channel in unique_channels],
-                            value=unique_channels,
-                            className="mt-1"
-                        )
-                    ], width=2),
-
-                    # Status Selection
-                    dbc.Col([
-                        html.Label([html.I(className="fas fa-toggle-on me-2", style={'color': '#f59e0b'}), "Status:"], className="fw-bold mb-2"),
-                        dcc.Checklist(
-                            id='status-checklist',
-                            options=[{'label': status, 'value': status} for status in unique_statuses],
-                            value=unique_statuses,
-                            className="mt-1"
-                        )
-                    ], width=2),
-
-                    # User Type Selection
-                    dbc.Col([
-                        html.Label([html.I(className="fas fa-users me-2", style={'color': '#7c3aed'}), "User Type:"], className="fw-bold mb-2"),
-                        dcc.Checklist(
-                            id='user-type-checklist',
-                            options=[{'label': user_type, 'value': user_type} for user_type in unique_user_types],
-                            value=unique_user_types,
-                            className="mt-1"
-                        )
-                    ], width=2),
-
-                    # Date Range and Performance Filters
-                    dbc.Col([
-                        html.Label([html.I(className="fas fa-calendar-alt me-2", style={'color': '#ec4899'}), "Date Range:"], className="fw-bold mb-2"),
-                        dcc.DatePickerRange(
-                            id='date-picker-range',
-                            start_date=min_date,
-                            end_date=max_date,
-                            display_format='YYYY-MM-DD',
-                            className="mb-3"
-                        ) if min_date and max_date else html.P("No date data available"),
-
-                        html.Label([html.I(className="fas fa-chart-line me-2", style={'color': '#14b8a6'}), "Performance:"], className="fw-bold"),
-                        dcc.Dropdown(
-                            id='performance-filter',
-                            options=[
-                                {'label': 'All Campaigns', 'value': 'all'},
-                                {'label': 'High ROI (>10x)', 'value': 'high_roi'},
-                                {'label': 'High CTR (>2%)', 'value': 'high_ctr'},
-                                {'label': 'High Conversion (>1%)', 'value': 'high_conv'},
-                                {'label': 'Low Performers', 'value': 'low_perf'}
-                            ],
-                            value='all',
-                            className="mt-2"
-                        )
-                    ], width=2),
-                ])
+    
+    # Filter Controls Section
+    dbc.Card([
+        dbc.CardHeader([
+            html.H4("Filter Controls", className="mb-0")
+        ]),
+        dbc.CardBody([
+            dbc.Row([
+                # Journey Selection
+                dbc.Col([
+                    html.Label("Select Journeys:", className="fw-bold"),
+                    html.Div([
+                        dbc.Button("Select All", id="select-all-journeys", size="sm", color="outline-primary", className="me-2 mb-2"),
+                        dbc.Button("Clear All", id="clear-all-journeys", size="sm", color="outline-secondary", className="me-2 mb-2"),
+                        dbc.Button("Top 10 ROI", id="top-roi-journeys", size="sm", color="outline-success", className="mb-2"),
+                    ]),
+                    dcc.Checklist(
+                        id='journey-checklist',
+                        options=[{'label': journey, 'value': journey} for journey in unique_journeys],
+                        value=unique_journeys[:10] if len(unique_journeys) > 10 else unique_journeys,
+                        style={'maxHeight': '200px', 'overflowY': 'scroll', 'border': '1px solid #ccc', 'padding': '10px'},
+                        className="mt-2"
+                    )
+                ], width=4),
+                
+                # Channel Selection
+                dbc.Col([
+                    html.Label("Select Channels:", className="fw-bold"),
+                    html.Div([
+                        dbc.Button("Select All", id="select-all-channels", size="sm", color="outline-primary", className="me-2 mb-2"),
+                        dbc.Button("Clear All", id="clear-all-channels", size="sm", color="outline-secondary", className="mb-2"),
+                    ]),
+                    dcc.Checklist(
+                        id='channel-checklist',
+                        options=[{'label': channel, 'value': channel} for channel in unique_channels],
+                        value=unique_channels,
+                        className="mt-2"
+                    )
+                ], width=2),
+                
+                # Status Selection
+                dbc.Col([
+                    html.Label("Campaign Status:", className="fw-bold"),
+                    dcc.Checklist(
+                        id='status-checklist',
+                        options=[{'label': status, 'value': status} for status in unique_statuses],
+                        value=unique_statuses,
+                        className="mt-2"
+                    )
+                ], width=2),
+                
+                # User Type Selection
+                dbc.Col([
+                    html.Label("User Type:", className="fw-bold"),
+                    dcc.Checklist(
+                        id='user-type-checklist',
+                        options=[{'label': user_type, 'value': user_type} for user_type in unique_user_types],
+                        value=unique_user_types,
+                        className="mt-2"
+                    )
+                ], width=2),
+                
+                # Date Range and Performance Filters
+                dbc.Col([
+                    html.Label("Date Range:", className="fw-bold"),
+                    dcc.DatePickerRange(
+                        id='date-picker-range',
+                        start_date=min_date,
+                        end_date=max_date,
+                        display_format='YYYY-MM-DD',
+                        className="mb-3"
+                    ) if min_date and max_date else html.P("No date data available"),
+                    
+                    html.Label("Performance Filter:", className="fw-bold"),
+                    dcc.Dropdown(
+                        id='performance-filter',
+                        options=[
+                            {'label': 'All Campaigns', 'value': 'all'},
+                            {'label': 'High ROI (>10x)', 'value': 'high_roi'},
+                            {'label': 'High CTR (>2%)', 'value': 'high_ctr'},
+                            {'label': 'High Conversion (>1%)', 'value': 'high_conv'},
+                            {'label': 'Low Performers', 'value': 'low_perf'}
+                        ],
+                        value='all',
+                        className="mt-2"
+                    )
+                ], width=2),
             ])
-        ], className="mb-4"),
-        id="filter-collapse",
-        is_open=True
-    ),
-
+        ])
+    ], className="mb-4"),
+    
     # KPI Dashboard
     html.Div(id="kpi-dashboard", className="mb-4"),
-
+    
     # Main Content Tabs
     dbc.Tabs([
         dbc.Tab(label="Performance Overview", tab_id="overview"),
         dbc.Tab(label="Channel Analysis", tab_id="channel-analysis"),
         dbc.Tab(label="Weekly Analysis", tab_id="weekly-analysis"),
         dbc.Tab(label="Trend Analysis", tab_id="trends"),
-        dbc.Tab(label="Volume Analysis", tab_id="volume-analysis"),
+        dbc.Tab(label="Volume Analysis", tab_id="volume-analysis"),  # Add this new tab
         dbc.Tab(label="Summary Table", tab_id="summary"),
         dbc.Tab(label="Campaign Details", tab_id="details"),
-        dbc.Tab(label="Report Generator", tab_id="report"),
     ], id="main-tabs", active_tab="overview"),
-
+    
     # Tab Content
     html.Div(id="tab-content", className="mt-4")
-
-], fluid=True, style={'backgroundColor': '#0f1419', 'minHeight': '100vh'})
+    
+], fluid=True)
 
 # Remove the incomplete collapse callbacks and replace with proper callback implementations
-
-# Filter collapse toggle callback
-@app.callback(
-    Output("filter-collapse", "is_open"),
-    Input("toggle-filters-btn", "n_clicks"),
-    State("filter-collapse", "is_open"),
-    prevent_initial_call=True
-)
-def toggle_filter_collapse(n_clicks, is_open):
-    return not is_open
 
 # Filter callbacks - Complete implementation
 @app.callback(
@@ -844,29 +631,65 @@ def update_kpi_cards(selected_journeys, selected_channels, selected_statuses, se
         total_gtv = total_conversions * AOV
         overall_roi = total_gtv / total_cost if total_cost > 0 else 0
         
-        def _kpi_card(value, label, subtitle, accent, icon):
-            return dbc.Col([
-                html.Div([
-                    html.Div([
-                        html.Div([
-                            html.I(className=f"fas {icon}", style={'color': accent, 'fontSize': '1.1rem'}),
-                        ], style={'marginBottom': '8px'}),
-                        html.H3(value, style={'color': accent, 'fontWeight': '700', 'fontSize': '1.7rem', 'marginBottom': '2px'}),
-                        html.P(label, style={'color': '#e2e8f0', 'fontWeight': '500', 'marginBottom': '4px', 'fontSize': '0.82rem'}),
-                        html.Small(subtitle, style={'color': '#64748b', 'fontSize': '0.72rem'})
-                    ], style={'textAlign': 'center', 'padding': '20px 12px'})
-                ], className=f"glass-card kpi-{accent.replace('#', '').split('d')[0][:3] if 'ff' in accent else accent.split('#')[1][:3]}",
-                   style={'borderLeft': f'4px solid {accent}'})
-            ], width=2)
-
         return dbc.Row([
-            _kpi_card(f"{total_sent:,}", "Messages Sent", f"{len(set(filtered_data['Journey Name']))} journeys", "#00d4ff", "fa-paper-plane"),
-            _kpi_card(f"{total_delivered:,}", "Delivered", f"{(total_delivered/total_sent*100 if total_sent > 0 else 0):.0f}% delivery rate", "#10b981", "fa-check-circle"),
-            _kpi_card(f"{total_clicks:,}", "Clicks", f"{(total_clicks/total_delivered*100 if total_delivered > 0 else 0):.2f}% CTR", "#38bdf8", "fa-mouse-pointer"),
-            _kpi_card(f"{total_conversions:,}", "Conversions", f"{(total_conversions/total_clicks*100 if total_clicks > 0 else 0):.1f}% conv rate", "#f59e0b", "fa-shopping-cart"),
-            _kpi_card(f"₹{total_cost:,.0f}", "Total Cost", f"₹{(total_cost/total_conversions if total_conversions > 0 else 0):.0f} per order", "#ef4444", "fa-rupee-sign"),
-            _kpi_card(f"{overall_roi:.1f}x", "ROI", f"₹{total_gtv:,.0f} GTV", "#7c3aed", "fa-chart-line"),
-        ], className="g-3")
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(f"{total_sent:,}", className="text-primary text-center"),
+                        html.P("Messages Sent", className="text-center mb-0"),
+                        html.Small(f"{len(set(filtered_data['Journey Name']))} journeys", className="text-muted text-center d-block")
+                    ])
+                ])
+            ], width=2),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(f"{total_delivered:,}", className="text-success text-center"),
+                        html.P("Delivered", className="text-center mb-0"),
+                        html.Small(f"{(total_delivered/total_sent*100 if total_sent > 0 else 0):.0f}%", 
+                                 className="text-muted text-center d-block")
+                    ])
+                ])
+            ], width=2),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(f"{total_clicks:,}", className="text-info text-center"),
+                        html.P("Clicks", className="text-center mb-0"),
+                        html.Small(f"{(total_clicks/total_delivered*100 if total_delivered > 0 else 0):.1f}%", 
+                                 className="text-muted text-center d-block")
+                    ])
+                ])
+            ], width=2),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(f"{total_conversions:,}", className="text-warning text-center"),
+                        html.P("Conversions", className="text-center mb-0"),
+                        html.Small(f"{(total_conversions/total_clicks*100 if total_clicks > 0 else 0):.1f}%", 
+                                 className="text-muted text-center d-block")
+                    ])
+                ])
+            ], width=2),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(f"₹{total_cost:,.0f}", className="text-danger text-center"),
+                        html.P("Total Cost", className="text-center mb-0")
+                    ])
+                ])
+            ], width=2),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H4(f"{overall_roi:.1f}x", className="text-dark text-center"),
+                        html.P("ROI", className="text-center mb-0"),
+                        html.Small(f"₹{total_gtv:,.0f} GTV", 
+                                 className="text-muted text-center d-block")
+                    ])
+                ])
+            ], width=2),
+        ])
         
     except Exception as e:
         return dbc.Alert(f"Error calculating metrics: {str(e)}", color="danger")
@@ -920,8 +743,6 @@ def update_tab_content(active_tab, selected_journeys, selected_channels, selecte
             return create_summary_tab(filtered_data)
         elif active_tab == "details":
             return create_details_tab(filtered_data)
-        elif active_tab == "report":
-            return create_report_tab(filtered_data)
         else:
             return html.Div("Select a tab to view content")
             
@@ -1048,7 +869,7 @@ def update_weekly_analysis(selected_journey, selected_metrics, journey_filter, c
                     side="left"
                 ),
                 yaxis2=dict(
-                    title="Clicks/Orders Count",
+                    title="Clicks/Orders Count", 
                     side="right",
                     overlaying="y"
                 ),
@@ -1063,8 +884,7 @@ def update_weekly_analysis(selected_journey, selected_metrics, journey_filter, c
                 title_font_size=16,
                 margin=dict(t=80, b=60, l=60, r=60)
             )
-            apply_dark_chart_style(fig_volume, height=500)
-
+            
             charts.append(dbc.Row([dbc.Col([dcc.Graph(figure=fig_volume)], width=12)], className="mb-4"))
         
         if 'performance' in selected_metrics:
@@ -1115,8 +935,7 @@ def update_weekly_analysis(selected_journey, selected_metrics, journey_filter, c
                 margin=dict(t=80, b=60, l=60, r=60),
                 hovermode='x unified'
             )
-            apply_dark_chart_style(fig_performance, height=500)
-
+            
             charts.append(dbc.Row([dbc.Col([dcc.Graph(figure=fig_performance)], width=12)], className="mb-4"))
         
         if 'financial' in selected_metrics:
@@ -1170,7 +989,7 @@ def update_weekly_analysis(selected_journey, selected_metrics, journey_filter, c
                     side="left"
                 ),
                 yaxis2=dict(
-                    title="ROI (x)",
+                    title="ROI (x)", 
                     side="right",
                     overlaying="y"
                 ),
@@ -1186,8 +1005,7 @@ def update_weekly_analysis(selected_journey, selected_metrics, journey_filter, c
                 margin=dict(t=80, b=60, l=60, r=60),
                 hovermode='x unified'
             )
-            apply_dark_chart_style(fig_financial, height=500)
-
+            
             charts.append(dbc.Row([dbc.Col([dcc.Graph(figure=fig_financial)], width=12)], className="mb-4"))
         
         # Also create weekly summary for table view
@@ -1235,9 +1053,16 @@ def update_weekly_analysis(selected_journey, selected_metrics, journey_filter, c
         daily_table = dash_table.DataTable(
             data=display_daily_df.to_dict('records'),
             columns=[{"name": col.replace('_', ' '), "id": col} for col in display_daily_df.columns],
-            style_table=DARK_TABLE_STYLE_TABLE,
-            style_cell=DARK_TABLE_STYLE_CELL,
-            style_header=DARK_TABLE_STYLE_HEADER,
+            style_table={'overflowX': 'auto'},
+            style_cell={
+                'textAlign': 'center',
+                'padding': '8px',
+                'fontSize': '12px'
+            },
+            style_header={
+                'backgroundColor': 'rgb(230, 230, 230)',
+                'fontWeight': 'bold'
+            },
             sort_action="native",
             export_format="xlsx",
             page_size=15
@@ -1261,9 +1086,16 @@ def update_weekly_analysis(selected_journey, selected_metrics, journey_filter, c
         weekly_table = dash_table.DataTable(
             data=display_weekly_df.to_dict('records'),
             columns=[{"name": col.replace('_', ' '), "id": col} for col in display_weekly_df.columns],
-            style_table=DARK_TABLE_STYLE_TABLE,
-            style_cell=DARK_TABLE_STYLE_CELL,
-            style_header=DARK_TABLE_STYLE_HEADER,
+            style_table={'overflowX': 'auto'},
+            style_cell={
+                'textAlign': 'center',
+                'padding': '8px',
+                'fontSize': '12px'
+            },
+            style_header={
+                'backgroundColor': 'rgb(230, 230, 230)',
+                'fontWeight': 'bold'
+            },
             export_format="xlsx"
         )
         
@@ -1326,8 +1158,7 @@ def create_overview_tab(filtered_data):
                 xaxis=dict(tickangle=0),
                 margin=dict(t=60, b=100, l=60, r=60)
             )
-            apply_dark_chart_style(fig1, height=500)
-
+            
             # Add horizontal line at ROI = 1 (break-even)
             fig1.add_hline(y=1, line_dash="dash", line_color="red", 
                           annotation_text="Break-even (1x ROI)", 
@@ -1361,8 +1192,7 @@ def create_overview_tab(filtered_data):
             title_font_size=16,
             margin=dict(t=60, b=60, l=60, r=60)
         )
-        apply_dark_chart_style(fig2, height=500)
-
+        
         # Create additional performance chart - Journey ROI scatter
         summary_metrics = analyzer.calculate_summary_metrics(filtered_data)
         if not summary_metrics.empty and len(summary_metrics) > 1:
@@ -1403,7 +1233,6 @@ def create_overview_tab(filtered_data):
                 yaxis_title="Gross Transaction Value (₹)",
                 margin=dict(t=60, b=60, l=60, r=60)
             )
-            apply_dark_chart_style(fig3, height=500)
         else:
             fig3 = px.scatter(title="Insufficient data for cost-revenue analysis")
         
@@ -1415,60 +1244,60 @@ def create_overview_tab(filtered_data):
                         dbc.CardBody([
                             html.H3(f"{total_sent:,}", className="text-primary text-center mb-1"),
                             html.P("Messages Sent", className="text-center mb-1 fw-bold"),
-                            html.Small(f"{len(set(filtered_data['Journey Name']))} journeys",
+                            html.Small(f"{len(set(filtered_data['Journey Name']))} journeys", 
                                      className="text-muted text-center d-block")
                         ])
-                    ], className="glass-card h-100")
+                    ], className="h-100")
                 ], width=2),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             html.H3(f"{total_delivered:,}", className="text-success text-center mb-1"),
                             html.P("Delivered", className="text-center mb-1 fw-bold"),
-                            html.Small(f"{(total_delivered/total_sent*100 if total_sent > 0 else 0):.1f}% delivery rate",
+                            html.Small(f"{(total_delivered/total_sent*100 if total_sent > 0 else 0):.1f}% delivery rate", 
                                      className="text-muted text-center d-block")
                         ])
-                    ], className="glass-card h-100")
+                    ], className="h-100")
                 ], width=2),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             html.H3(f"{total_clicks:,}", className="text-info text-center mb-1"),
                             html.P("Clicks", className="text-center mb-1 fw-bold"),
-                            html.Small(f"{(total_clicks/total_delivered*100 if total_delivered > 0 else 0):.2f}% CTR",
+                            html.Small(f"{(total_clicks/total_delivered*100 if total_delivered > 0 else 0):.2f}% CTR", 
                                      className="text-muted text-center d-block")
                         ])
-                    ], className="glass-card h-100")
+                    ], className="h-100")
                 ], width=2),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             html.H3(f"{total_orders:,}", className="text-warning text-center mb-1"),
                             html.P("Orders", className="text-center mb-1 fw-bold"),
-                            html.Small(f"{(total_orders/total_clicks*100 if total_clicks > 0 else 0):.2f}% conversion",
+                            html.Small(f"{(total_orders/total_clicks*100 if total_clicks > 0 else 0):.2f}% conversion", 
                                      className="text-muted text-center d-block")
                         ])
-                    ], className="glass-card h-100")
+                    ], className="h-100")
                 ], width=2),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             html.H3(f"₹{total_cost:,.0f}", className="text-danger text-center mb-1"),
                             html.P("Total Cost", className="text-center mb-1 fw-bold"),
-                            html.Small(f"₹{(total_cost/total_orders if total_orders > 0 else 0):.0f} per order",
+                            html.Small(f"₹{(total_cost/total_orders if total_orders > 0 else 0):.0f} per order", 
                                      className="text-muted text-center d-block")
                         ])
-                    ], className="glass-card h-100")
+                    ], className="h-100")
                 ], width=2),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             html.H3(f"{overall_roi:.1f}x", className="text-dark text-center mb-1"),
                             html.P("Overall ROI", className="text-center mb-1 fw-bold"),
-                            html.Small(f"₹{total_gtv:,.0f} GTV",
+                            html.Small(f"₹{total_gtv:,.0f} GTV", 
                                      className="text-muted text-center d-block")
                         ])
-                    ], className="glass-card h-100")
+                    ], className="h-100")
                 ], width=2),
             ], className="mb-4"),
             
@@ -1479,17 +1308,17 @@ def create_overview_tab(filtered_data):
                         dbc.CardBody([
                             dcc.Graph(figure=fig1)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=6),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             dcc.Graph(figure=fig2)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=6)
             ], className="mb-4"),
-
+            
             # Additional analysis chart
             dbc.Row([
                 dbc.Col([
@@ -1497,7 +1326,7 @@ def create_overview_tab(filtered_data):
                         dbc.CardBody([
                             dcc.Graph(figure=fig3)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=12)
             ])
         ])
@@ -1595,8 +1424,7 @@ def create_trends_tab(filtered_data):
             title_font_size=16,
             margin=dict(t=100, b=60, l=60, r=60)  # Increased top margin for labels
         )
-        apply_dark_chart_style(fig1, height=650)
-
+        
         # Create performance rates chart with data labels
         fig2 = go.Figure()
         
@@ -1652,8 +1480,7 @@ def create_trends_tab(filtered_data):
             title_font_size=16,
             margin=dict(t=100, b=60, l=60, r=60)  # Increased margins for labels
         )
-        apply_dark_chart_style(fig2, height=550)
-
+        
         # ROI trends chart with data labels
         fig3 = go.Figure()
         
@@ -1685,8 +1512,7 @@ def create_trends_tab(filtered_data):
             margin=dict(t=80, b=60, l=60, r=60),
             showlegend=False
         )
-        apply_dark_chart_style(fig3, height=450)
-
+        
         return html.Div([
             # Enhanced header with data labels info
             dbc.Alert([
@@ -1700,24 +1526,24 @@ def create_trends_tab(filtered_data):
                         dbc.CardBody([
                             dcc.Graph(figure=fig1)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=12)
             ], className="mb-4"),
-
+            
             dbc.Row([
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             dcc.Graph(figure=fig2)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=8),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             dcc.Graph(figure=fig3)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=4)
             ])
         ])
@@ -1781,10 +1607,25 @@ def create_channel_analysis_tab(filtered_data):
             dash_table.DataTable(
                 data=breakdown_df.to_dict('records'),
                 columns=[{"name": i, "id": i} for i in breakdown_df.columns],
-                style_table=DARK_TABLE_STYLE_TABLE,
-                style_cell=DARK_TABLE_STYLE_CELL,
-                style_header=DARK_TABLE_STYLE_HEADER,
-                style_data_conditional=DARK_TABLE_STYLE_DATA_COND,
+                style_table={'overflowX': 'auto'},
+                style_cell={
+                    'textAlign': 'center',
+                    'padding': '8px',
+                    'fontSize': '12px',
+                    'whiteSpace': 'nowrap'
+                },
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'column_id': 'Journey Name'},
+                        'textAlign': 'left',
+                        'fontWeight': 'bold'
+                    }
+                ],
                 sort_action="native",
                 sort_mode="multi",
                 export_format="xlsx",
@@ -1830,7 +1671,6 @@ def create_volume_analysis_tab(filtered_data):
             showlegend=False,
             font=dict(size=12)
         )
-        apply_dark_chart_style(fig1, height=500)
         
         fig2 = go.Figure()
         fig2.add_trace(go.Bar(
@@ -1852,7 +1692,6 @@ def create_volume_analysis_tab(filtered_data):
             showlegend=False,
             font=dict(size=12)
         )
-        apply_dark_chart_style(fig2, height=500)
         
         fig3 = go.Figure()
         fig3.add_trace(go.Bar(
@@ -1874,7 +1713,6 @@ def create_volume_analysis_tab(filtered_data):
             showlegend=False,
             font=dict(size=12)
         )
-        apply_dark_chart_style(fig3, height=500)
         
         fig4 = go.Figure()
         fig4.add_trace(go.Bar(
@@ -1896,7 +1734,6 @@ def create_volume_analysis_tab(filtered_data):
             showlegend=False,
             font=dict(size=12)
         )
-        apply_dark_chart_style(fig4, height=500)
         
         return html.Div([
             html.H4("Volume Analysis by Channel", className="text-center mb-4"),
@@ -1909,31 +1746,31 @@ def create_volume_analysis_tab(filtered_data):
                         dbc.CardBody([
                             dcc.Graph(figure=fig1)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=6),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             dcc.Graph(figure=fig2)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=6),
             ], className="mb-4"),
-
+    
             dbc.Row([
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             dcc.Graph(figure=fig3)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=6),
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
                             dcc.Graph(figure=fig4)
                         ])
-                    ], className="glass-card")
+                    ])
                 ], width=6),
             ])
         ])
@@ -2164,20 +2001,33 @@ def create_summary_tab(filtered_data):
                 id="summary-data-table",
                 data=display_df.to_dict('records'),
                 columns=[{"name": col, "id": col, "type": "numeric" if col in ['ROI', 'CTR', 'Conversion Rate', 'Order per Sent', 'Delivery Rate'] else "text"} for col in display_df.columns],
-                style_table=DARK_TABLE_STYLE_TABLE,
-                style_cell=DARK_TABLE_STYLE_CELL,
-                style_header=DARK_TABLE_STYLE_HEADER,
+                style_table={'overflowX': 'auto'},
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '8px',
+                    'fontSize': '12px',
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                    'fontFamily': 'Arial, sans-serif'
+                },
+                style_header={
+                    'backgroundColor': '#2c3e50',
+                    'color': 'white',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center',
+                    'fontSize': '13px'
+                },
                 style_data_conditional=[
                     {
                         'if': {'column_id': 'Journey Name'},
                         'textAlign': 'left',
                         'fontWeight': 'bold',
-                        'backgroundColor': '#1a1f2e'
+                        'backgroundColor': '#f8f9fa'
                     },
                     # Alternating row colors
                     {
                         'if': {'row_index': 'odd'},
-                        'backgroundColor': '#151a27'
+                        'backgroundColor': 'rgb(248, 248, 248)'
                     }
                 ] + color_conditions,
                 sort_action="custom",
@@ -2373,10 +2223,19 @@ def create_details_tab(filtered_data):
             dash_table.DataTable(
                 data=campaign_details.to_dict('records'),
                 columns=[{"name": i, "id": i} for i in campaign_details.columns],
-                style_table=DARK_TABLE_STYLE_TABLE,
-                style_cell=DARK_TABLE_STYLE_CELL,
-                style_header=DARK_TABLE_STYLE_HEADER,
-                style_data_conditional=DARK_TABLE_STYLE_DATA_COND,
+                style_table={'overflowX': 'auto'},
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '8px',
+                    'fontSize': '11px',
+                    'whiteSpace': 'normal',
+                    'height': 'auto'
+                },
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center'
+                },
                 sort_action="native",
                 sort_mode="multi",
                 filter_action="native",
@@ -2388,277 +2247,38 @@ def create_details_tab(filtered_data):
     except Exception as e:
         return dbc.Alert(f"Error creating details: {str(e)}", color="danger")
 
-# ============================================================
-# REPORT GENERATOR TAB + FUNCTIONS
-# ============================================================
-
-def create_report_tab(filtered_data):
-    """Create the Report Generator configuration tab"""
-    try:
-        if filtered_data.empty:
-            return html.Div("No data available for report generation", className="text-center text-warning p-4")
-
-        n_journeys = filtered_data['Journey Name'].nunique()
-        channels_list = ', '.join(sorted(filtered_data['Channel'].unique()))
-        date_min = pd.to_datetime(filtered_data['Day']).min().strftime('%Y-%m-%d') if 'Day' in filtered_data.columns else 'N/A'
-        date_max = pd.to_datetime(filtered_data['Day']).max().strftime('%Y-%m-%d') if 'Day' in filtered_data.columns else 'N/A'
-
-        return html.Div([
-            dbc.Row([
-                dbc.Col([
-                    html.Div([
-                        html.I(className="fas fa-file-alt me-3", style={'fontSize': '1.6rem', 'color': '#00d4ff'}),
-                        html.Span("Comprehensive Report Generator", style={'fontSize': '1.4rem', 'fontWeight': '700', 'color': '#e2e8f0'})
-                    ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '8px'}),
-                    html.P("Generate a detailed performance report based on your current filters and selections.",
-                           style={'color': '#64748b', 'fontSize': '0.9rem'}),
-                ], width=12)
-            ], className="mb-4"),
-
-            dbc.Row([
-                dbc.Col([
-                    html.Div([
-                        html.H6([html.I(className="fas fa-info-circle me-2", style={'color': '#00d4ff'}), "Current Selection Summary"],
-                                style={'color': '#e2e8f0', 'fontWeight': '600', 'marginBottom': '16px'}),
-                        dbc.Row([
-                            dbc.Col([
-                                html.Small("DATE RANGE", style={'color': '#64748b', 'fontSize': '0.7rem', 'letterSpacing': '1px'}),
-                                html.P(f"{date_min}  to  {date_max}", style={'color': '#00d4ff', 'fontWeight': '600', 'fontSize': '0.9rem', 'marginBottom': '0'}),
-                            ], width=4),
-                            dbc.Col([
-                                html.Small("JOURNEYS", style={'color': '#64748b', 'fontSize': '0.7rem', 'letterSpacing': '1px'}),
-                                html.P(f"{n_journeys} selected", style={'color': '#10b981', 'fontWeight': '600', 'fontSize': '0.9rem', 'marginBottom': '0'}),
-                            ], width=4),
-                            dbc.Col([
-                                html.Small("CHANNELS", style={'color': '#64748b', 'fontSize': '0.7rem', 'letterSpacing': '1px'}),
-                                html.P(channels_list, style={'color': '#f59e0b', 'fontWeight': '600', 'fontSize': '0.9rem', 'marginBottom': '0'}),
-                            ], width=4),
-                        ]),
-                    ], className="glass-card", style={'padding': '20px', 'marginBottom': '20px'}),
-                    html.Div([
-                        html.H6([html.I(className="fas fa-pen me-2", style={'color': '#7c3aed'}), "Report Title"],
-                                style={'color': '#e2e8f0', 'fontWeight': '600', 'marginBottom': '12px'}),
-                        dcc.Input(id='report-title-input', type='text', placeholder='Journey Performance Report',
-                            value='Journey Performance Report',
-                            style={'width': '100%', 'padding': '10px 16px', 'borderRadius': '8px',
-                                   'backgroundColor': '#242b3d', 'border': '1px solid rgba(255,255,255,0.1)',
-                                   'color': '#e2e8f0', 'fontSize': '0.95rem'}),
-                    ], className="glass-card", style={'padding': '20px', 'marginBottom': '20px'}),
-                    html.Div([
-                        html.H6([html.I(className="fas fa-list-check me-2", style={'color': '#10b981'}), "Include Sections"],
-                                style={'color': '#e2e8f0', 'fontWeight': '600', 'marginBottom': '12px'}),
-                        dcc.Checklist(id='report-sections-checklist',
-                            options=[
-                                {'label': '  Executive Summary (KPIs)', 'value': 'executive'},
-                                {'label': '  Channel Performance Breakdown', 'value': 'channel'},
-                                {'label': '  Journey Performance Table', 'value': 'journey_table'},
-                                {'label': '  Top & Bottom Performers', 'value': 'performers'},
-                                {'label': '  Volume Analysis', 'value': 'volume'},
-                            ],
-                            value=['executive', 'channel', 'journey_table', 'performers', 'volume'],
-                            style={'lineHeight': '2.2'}),
-                    ], className="glass-card", style={'padding': '20px', 'marginBottom': '20px'}),
-                ], width=7),
-                dbc.Col([
-                    html.Div([
-                        html.H6([html.I(className="fas fa-download me-2", style={'color': '#00d4ff'}), "Download Report"],
-                                style={'color': '#e2e8f0', 'fontWeight': '600', 'marginBottom': '20px'}),
-                        html.Div([
-                            html.Div([
-                                html.I(className="fas fa-code me-3", style={'fontSize': '2rem', 'color': '#00d4ff'}),
-                                html.Div([
-                                    html.P("HTML Report", style={'color': '#e2e8f0', 'fontWeight': '600', 'marginBottom': '2px'}),
-                                    html.Small("Interactive report with styled tables. Opens in any browser.", style={'color': '#64748b', 'fontSize': '0.8rem'}),
-                                ])
-                            ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '14px'}),
-                            dbc.Button([html.I(className="fas fa-download me-2"), "Download HTML"],
-                                id="btn-download-html", className="btn-dl-html w-100", n_clicks=0),
-                        ], style={'marginBottom': '28px'}),
-                        html.Div([
-                            html.Div([
-                                html.I(className="fas fa-file-pdf me-3", style={'fontSize': '2rem', 'color': '#7c3aed'}),
-                                html.Div([
-                                    html.P("PDF Report", style={'color': '#e2e8f0', 'fontWeight': '600', 'marginBottom': '2px'}),
-                                    html.Small("Formal PDF document." + (" (weasyprint installed)" if HAS_WEASYPRINT else " (requires weasyprint)"),
-                                             style={'color': '#64748b', 'fontSize': '0.8rem'}),
-                                ])
-                            ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '14px'}),
-                            dbc.Button([html.I(className="fas fa-download me-2"), "Download PDF"],
-                                id="btn-download-pdf", className="btn-dl-pdf w-100", n_clicks=0, disabled=not HAS_WEASYPRINT),
-                            html.Small("Install: pip install weasyprint", style={'color': '#64748b', 'marginTop': '6px', 'display': 'block'}) if not HAS_WEASYPRINT else html.Span(),
-                        ]),
-                    ], className="glass-card", style={'padding': '24px'}),
-                    html.Div([
-                        html.Small([html.I(className="fas fa-lightbulb me-2", style={'color': '#f59e0b'}),
-                            "Reports use your current filter selections. Adjust filters above to change scope."],
-                            style={'color': '#64748b', 'lineHeight': '1.6'})
-                    ], style={'marginTop': '16px', 'padding': '12px', 'borderRadius': '8px',
-                              'background': 'rgba(245,158,11,0.06)', 'border': '1px solid rgba(245,158,11,0.12)'})
-                ], width=5),
-            ]),
-        ])
-    except Exception as e:
-        return dbc.Alert(f"Error creating report tab: {str(e)}", color="danger")
-
-
-def generate_html_report(filtered_data, report_title, sections):
-    """Generate a comprehensive standalone HTML report"""
-    now = datetime.now().strftime('%Y-%m-%d %H:%M')
-    total_sent = int(filtered_data['Sent'].sum())
-    total_delivered = int(filtered_data['Delivered'].sum())
-    total_clicks = int(filtered_data['Unique Clicks'].sum())
-    total_orders = int(filtered_data['Unique Click-Through Conversions'].sum())
-    total_cost = filtered_data['Cost'].sum()
-    total_gtv = filtered_data['GTV'].sum()
-    overall_roi = total_gtv / total_cost if total_cost > 0 else 0
-    delivery_rate = (total_delivered / total_sent * 100) if total_sent > 0 else 0
-    ctr_val = (total_clicks / total_delivered * 100) if total_delivered > 0 else 0
-    conv_rate = (total_orders / total_clicks * 100) if total_clicks > 0 else 0
-    date_min = pd.to_datetime(filtered_data['Day']).min().strftime('%Y-%m-%d') if 'Day' in filtered_data.columns else 'N/A'
-    date_max = pd.to_datetime(filtered_data['Day']).max().strftime('%Y-%m-%d') if 'Day' in filtered_data.columns else 'N/A'
-    n_journeys = filtered_data['Journey Name'].nunique()
-    channels_used = ', '.join(sorted(filtered_data['Channel'].unique()))
-
-    hp = []
-    hp.append(f'''<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>{report_title}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>*{{margin:0;padding:0;box-sizing:border-box;}}
-body{{background:#0f1419;color:#e2e8f0;font-family:'Inter',sans-serif;padding:40px 60px;line-height:1.6;}}
-.header{{text-align:center;margin-bottom:40px;padding-bottom:24px;border-bottom:2px solid rgba(255,255,255,0.06);}}
-.header h1{{background:linear-gradient(135deg,#00d4ff,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:2.2rem;font-weight:800;margin-bottom:8px;}}
-.header .sub{{color:#64748b;font-size:0.9rem;}}.meta-row{{display:flex;gap:24px;justify-content:center;margin-top:16px;flex-wrap:wrap;}}
-.meta-item{{background:#1a1f2e;border-radius:8px;padding:8px 20px;font-size:0.8rem;}}.meta-item span{{color:#00d4ff;font-weight:600;}}
-.section{{margin-bottom:36px;}}.section h2{{font-size:1.25rem;font-weight:700;color:#e2e8f0;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid rgba(0,212,255,0.15);}}
-.dot{{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:8px;}}
-.kpi-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;}}
-.kpi-card{{background:#1a1f2e;border-radius:12px;padding:20px;text-align:center;border-left:4px solid #00d4ff;}}
-.kpi-card .value{{font-size:1.5rem;font-weight:700;margin-bottom:2px;}}.kpi-card .label{{font-size:0.8rem;color:#94a3b8;}}.kpi-card .sub2{{font-size:0.7rem;color:#64748b;}}
-table{{width:100%;border-collapse:collapse;font-size:0.82rem;margin-bottom:8px;}}
-th{{background:#0f1419;color:#e2e8f0;padding:10px 12px;text-align:center;font-weight:600;border-bottom:2px solid rgba(255,255,255,0.08);white-space:nowrap;}}
-td{{background:#1a1f2e;color:#cbd5e1;padding:8px 12px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.04);}}
-tr:nth-child(odd) td{{background:#151a27;}}td:first-child{{text-align:left;font-weight:500;}}
-.good{{color:#10b981;font-weight:600;}}.bad{{color:#ef4444;font-weight:600;}}
-.footer{{margin-top:48px;padding-top:20px;border-top:2px solid rgba(255,255,255,0.06);text-align:center;color:#475569;font-size:0.75rem;}}
-@media print{{body{{background:#fff;color:#1e293b;padding:20px;}}.kpi-card,.meta-item{{background:#f1f5f9;border-color:#94a3b8;}}
-th{{background:#e2e8f0;color:#1e293b;}}td{{background:#fff;color:#334155;}}tr:nth-child(odd) td{{background:#f8fafc;}}
-.header h1{{-webkit-text-fill-color:#0ea5e9;}}.good{{color:#059669;}}.bad{{color:#dc2626;}}}}</style></head>
-<body><div class="header"><h1>{report_title}</h1><p class="sub">Generated on {now}</p>
-<div class="meta-row"><div class="meta-item">Date Range: <span>{date_min} to {date_max}</span></div>
-<div class="meta-item">Journeys: <span>{n_journeys}</span></div><div class="meta-item">Channels: <span>{channels_used}</span></div></div></div>''')
-
-    if 'executive' in sections:
-        hp.append(f'''<div class="section"><h2><span class="dot" style="background:#00d4ff;"></span>Executive Summary</h2><div class="kpi-grid">
-<div class="kpi-card" style="border-color:#00d4ff;"><div class="value" style="color:#00d4ff;">{total_sent:,}</div><div class="label">Messages Sent</div></div>
-<div class="kpi-card" style="border-color:#10b981;"><div class="value" style="color:#10b981;">{total_delivered:,}</div><div class="label">Delivered</div><div class="sub2">{delivery_rate:.1f}%</div></div>
-<div class="kpi-card" style="border-color:#38bdf8;"><div class="value" style="color:#38bdf8;">{total_clicks:,}</div><div class="label">Clicks</div><div class="sub2">{ctr_val:.2f}% CTR</div></div>
-<div class="kpi-card" style="border-color:#f59e0b;"><div class="value" style="color:#f59e0b;">{total_orders:,}</div><div class="label">Orders</div><div class="sub2">{conv_rate:.2f}% conv</div></div>
-<div class="kpi-card" style="border-color:#ef4444;"><div class="value" style="color:#ef4444;">&#8377;{total_cost:,.0f}</div><div class="label">Total Cost</div></div>
-<div class="kpi-card" style="border-color:#10b981;"><div class="value" style="color:#10b981;">&#8377;{total_gtv:,.0f}</div><div class="label">GTV</div></div>
-<div class="kpi-card" style="border-color:#7c3aed;"><div class="value" style="color:#7c3aed;">{overall_roi:.1f}x</div><div class="label">ROI</div></div></div></div>''')
-
-    if 'channel' in sections:
-        cm = filtered_data.groupby('Channel').agg({'Sent':'sum','Delivered':'sum','Unique Clicks':'sum','Unique Click-Through Conversions':'sum','Cost':'sum','GTV':'sum'}).reset_index()
-        cm['DR'] = np.where(cm['Sent']>0,(cm['Delivered']/cm['Sent']*100).round(1),0)
-        cm['CTR_val'] = np.where(cm['Delivered']>0,(cm['Unique Clicks']/cm['Delivered']*100).round(2),0)
-        cm['CR'] = np.where(cm['Unique Clicks']>0,(cm['Unique Click-Through Conversions']/cm['Unique Clicks']*100).round(2),0)
-        cm['ROI'] = np.where(cm['Cost']>0,(cm['GTV']/cm['Cost']).round(1),0)
-        ch_rows = ''.join([f"<tr><td>{r['Channel']}</td><td>{int(r['Sent']):,}</td><td>{int(r['Delivered']):,}</td><td>{r['DR']:.1f}%</td><td>{int(r['Unique Clicks']):,}</td><td>{r['CTR_val']:.2f}%</td><td>{int(r['Unique Click-Through Conversions']):,}</td><td>{r['CR']:.2f}%</td><td>&#8377;{r['Cost']:,.0f}</td><td>&#8377;{r['GTV']:,.0f}</td><td class='{'good' if r['ROI']>1 else 'bad'}'>{r['ROI']:.1f}x</td></tr>" for _,r in cm.iterrows()])
-        hp.append(f'<div class="section"><h2><span class="dot" style="background:#10b981;"></span>Channel Performance</h2><table><thead><tr><th>Channel</th><th>Sent</th><th>Delivered</th><th>DR%</th><th>Clicks</th><th>CTR%</th><th>Orders</th><th>CR%</th><th>Cost</th><th>GTV</th><th>ROI</th></tr></thead><tbody>{ch_rows}</tbody></table></div>')
-
-    if 'journey_table' in sections:
-        sm = analyzer.calculate_summary_metrics(filtered_data)
-        if not sm.empty:
-            j_rows = ''.join([f"<tr><td>{r['Journey Name']}</td><td>{int(r['Sent']):,}</td><td>{int(r['Delivered']):,}</td><td>{int(r['Unique Clicks']):,}</td><td>{int(r['Unique Click-Through Conversions']):,}</td><td>&#8377;{r['Cost']:,.0f}</td><td>&#8377;{r['GTV']:,.0f}</td><td>{r.get('CTR',0):.2f}%</td><td>{r.get('Conversion Rate',0):.2f}%</td><td class='{'good' if r.get('ROI',0)>1 else 'bad'}'>{r.get('ROI',0):.1f}x</td></tr>" for _,r in sm.iterrows()])
-            hp.append(f'<div class="section"><h2><span class="dot" style="background:#f59e0b;"></span>Journey Performance</h2><table><thead><tr><th>Journey</th><th>Sent</th><th>Delivered</th><th>Clicks</th><th>Orders</th><th>Cost</th><th>GTV</th><th>CTR</th><th>Conv Rate</th><th>ROI</th></tr></thead><tbody>{j_rows}</tbody></table></div>')
-
-    if 'performers' in sections:
-        sm = analyzer.calculate_summary_metrics(filtered_data)
-        if not sm.empty and len(sm) >= 2:
-            top5 = sm.nlargest(5,'ROI'); bot5 = sm.nsmallest(5,'ROI')
-            t_rows = ''.join([f"<tr><td>{r['Journey Name']}</td><td class='good'>{r['ROI']:.1f}x</td><td>{int(r['Unique Click-Through Conversions']):,}</td><td>&#8377;{r['Cost']:,.0f}</td><td>&#8377;{r['GTV']:,.0f}</td></tr>" for _,r in top5.iterrows()])
-            b_rows = ''.join([f"<tr><td>{r['Journey Name']}</td><td class='bad'>{r['ROI']:.1f}x</td><td>{int(r['Unique Click-Through Conversions']):,}</td><td>&#8377;{r['Cost']:,.0f}</td><td>&#8377;{r['GTV']:,.0f}</td></tr>" for _,r in bot5.iterrows()])
-            hp.append(f'<div class="section"><h2><span class="dot" style="background:#7c3aed;"></span>Top & Bottom Performers</h2><h3 style="color:#10b981;font-size:1rem;margin-bottom:10px;">Top 5</h3><table><thead><tr><th>Journey</th><th>ROI</th><th>Orders</th><th>Cost</th><th>GTV</th></tr></thead><tbody>{t_rows}</tbody></table><h3 style="color:#ef4444;font-size:1rem;margin:20px 0 10px;">Bottom 5</h3><table><thead><tr><th>Journey</th><th>ROI</th><th>Orders</th><th>Cost</th><th>GTV</th></tr></thead><tbody>{b_rows}</tbody></table></div>')
-
-    if 'volume' in sections:
-        vol = filtered_data.groupby('Channel').agg({'Sent':'sum','Delivered':'sum','Unique Clicks':'sum','Unique Click-Through Conversions':'sum'}).reset_index()
-        v_rows = ''.join([f"<tr><td>{r['Channel']}</td><td>{int(r['Sent']):,}</td><td>{int(r['Delivered']):,}</td><td>{int(r['Unique Clicks']):,}</td><td>{int(r['Unique Click-Through Conversions']):,}</td></tr>" for _,r in vol.iterrows()])
-        hp.append(f'<div class="section"><h2><span class="dot" style="background:#ec4899;"></span>Volume Analysis</h2><table><thead><tr><th>Channel</th><th>Sent</th><th>Delivered</th><th>Clicks</th><th>Orders</th></tr></thead><tbody>{v_rows}</tbody></table></div>')
-
-    hp.append(f'<div class="footer"><p>Report generated on {now} &bull; Journey Analytics Dashboard &bull; {date_min} to {date_max}</p><p style="margin-top:4px;">AOV=&#8377;{AOV:,} | Take Rate={TAKE_RATE*100:.0f}% | Costs: Email &#8377;{CHANNEL_COSTS["Email"]}, Push &#8377;{CHANNEL_COSTS["Push"]}, SMS &#8377;{CHANNEL_COSTS["SMS"]}, WA &#8377;{CHANNEL_COSTS["WhatsApp"]}</p></div></body></html>')
-    return ''.join(hp)
-
-
-@app.callback(Output("download-html-report","data"),Input("btn-download-html","n_clicks"),
-    [State('journey-checklist','value'),State('channel-checklist','value'),State('status-checklist','value'),
-     State('user-type-checklist','value'),State('date-picker-range','start_date'),State('date-picker-range','end_date'),
-     State('report-title-input','value'),State('report-sections-checklist','value')],prevent_initial_call=True)
-def download_html_report(n_clicks,journeys,channels,statuses,user_types,start_date,end_date,title,sections):
-    if not n_clicks or not journeys or not channels: return dash.no_update
-    try:
-        f = data_loaded.copy()
-        if journeys: f = f[f['Journey Name'].isin(journeys)]
-        if channels: f = f[f['Channel'].isin(channels)]
-        if statuses: f = f[f['Status'].isin(statuses)]
-        if user_types: f = f[f['User_Type'].isin(user_types)]
-        if start_date and end_date: f = f[(f['Day']>=start_date)&(f['Day']<=end_date)]
-        html_content = generate_html_report(f, title or 'Journey Performance Report', sections or ['executive','channel','journey_table','performers','volume'])
-        return dict(content=html_content, filename=f"journey_report_{datetime.now().strftime('%Y%m%d_%H%M')}.html", type="text/html")
-    except Exception as e:
-        print(f"Error generating HTML report: {e}"); return dash.no_update
-
-@app.callback(Output("download-pdf-report","data"),Input("btn-download-pdf","n_clicks"),
-    [State('journey-checklist','value'),State('channel-checklist','value'),State('status-checklist','value'),
-     State('user-type-checklist','value'),State('date-picker-range','start_date'),State('date-picker-range','end_date'),
-     State('report-title-input','value'),State('report-sections-checklist','value')],prevent_initial_call=True)
-def download_pdf_report(n_clicks,journeys,channels,statuses,user_types,start_date,end_date,title,sections):
-    if not n_clicks or not journeys or not channels or not HAS_WEASYPRINT: return dash.no_update
-    try:
-        f = data_loaded.copy()
-        if journeys: f = f[f['Journey Name'].isin(journeys)]
-        if channels: f = f[f['Channel'].isin(channels)]
-        if statuses: f = f[f['Status'].isin(statuses)]
-        if user_types: f = f[f['User_Type'].isin(user_types)]
-        if start_date and end_date: f = f[(f['Day']>=start_date)&(f['Day']<=end_date)]
-        html_content = generate_html_report(f, title or 'Journey Performance Report', sections or ['executive','channel','journey_table','performers','volume'])
-        pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
-        b64 = base64.b64encode(pdf_bytes).decode()
-        return dict(content=b64, filename=f"journey_report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", base64=True, type="application/pdf")
-    except Exception as e:
-        print(f"Error generating PDF report: {e}"); return dash.no_update
-
 # Add this at the very end of your test.py file to run the app
 
 if __name__ == '__main__':
     try:
         local_ip = get_local_ip()
         port = 8058
-
-        print(f"\n>> Starting Journey Analytics Dashboard...")
-        print(f"   Data loaded: {len(data_loaded) if data_loaded is not None else 0} records")
-        print(f"   Journeys available: {len(unique_journeys)}")
-        print(f"   Channels available: {len(unique_channels)}")
-        print(f"\n   Dashboard will be available at:")
+        
+        print(f"\n🚀 Starting Journey Analytics Dashboard...")
+        print(f"📊 Data loaded: {len(data_loaded) if data_loaded is not None else 0} records")
+        print(f"🎯 Journeys available: {len(unique_journeys)}")
+        print(f"📡 Channels available: {len(unique_channels)}")
+        print(f"\n🌐 Dashboard will be available at:")
         print(f"   Local:    http://127.0.0.1:{port}")
         print(f"   Network:  http://{local_ip}:{port}")
-        print(f"\n   Tip: Use the network URL to access from other devices on the same network")
-        print(f"   Press Ctrl+C to stop the server\n")
-
+        print(f"\n💡 Tip: Use the network URL to access from other devices on the same network")
+        print(f"🔄 Press Ctrl+C to stop the server\n")
+        
         app.run(
-            debug=False,
-            host='0.0.0.0',
+            debug=False,  # Set to False for production
+            host='0.0.0.0',  # Allow access from any IP
             port=port,
             dev_tools_hot_reload=False
         )
-
+        
     except Exception as e:
-        print(f"Error starting the app: {e}")
-        print("Try changing the port number if 8058 is already in use")
-
+        print(f"❌ Error starting the app: {e}")
+        print("🔧 Try changing the port number if 8050 is already in use")
+        
         # Try alternative port
         try:
             port = 8051
-            print(f"Trying alternative port {port}...")
+            print(f"🔄 Trying alternative port {port}...")
             app.run(
                 debug=False,
                 host='0.0.0.0',
@@ -2666,5 +2286,5 @@ if __name__ == '__main__':
                 dev_tools_hot_reload=False
             )
         except Exception as e2:
-            print(f"Error on alternative port: {e2}")
-            print("Please check if Python has network permissions or try a different port")
+            print(f"❌ Error on alternative port: {e2}")
+            print("💡 Please check if Python has network permissions or try a different port")

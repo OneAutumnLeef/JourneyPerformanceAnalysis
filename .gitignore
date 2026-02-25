@@ -2,5 +2,13 @@ JourneyPerformance.xlsx
 reportjun24.csv
 reportjun25.csv
 reportjun25.xlsx
+combined_reports.csv
+*.csv
 /ReportsZIP
 /Misc
+/Unnecessary
+/New folder
+/Reports
+/__pycache__
+/Codes
+tmpclaude-*
